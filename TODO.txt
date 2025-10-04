@@ -1,0 +1,7 @@
+04/10/2025 : Code fonctionnel de tous les capteurs (sauf accéléromètre) et pilotage du moteur en boucle ouverte via un potentiomètre avec l'arbre de sortie du réducteur découplé du mécanisme de levage (servodrive ouvert)
+
+A FAIRE : 
+- Asservissement en vitesse et position du moteur.
+- Sécurité : limite de courant et limites angulaires
+- Procédure de réinitialisation du zéro du codeur de la porte via I2C
+ 
