@@ -48,7 +48,7 @@ volatile unsigned prev_time_bt = 0; // Pour éviter l'effot bouncing du bouton
 
 // Moyenne courant
 volatile bool is_current_limit_reach = LOW;
-const unsigned int limite_current = 5;
+const double limite_current = 2;
 const unsigned int current_moy_nb = 5;
 volatile unsigned int current_index = 0;
 volatile double current_moy_val = 0.;
@@ -175,10 +175,10 @@ void isrt(){
   door_angle = door_angle / 2.4; // angle réel de la porte en °
   temps += dt; // en s
 
-  // if (addCurrent(driver_current) >= limite_current) {
-  //   is_current_limit_reach = HIGH;
-  //   stopMotor();
-  // }
+  if (addCurrent(driver_current) >= limite_current) {
+    is_current_limit_reach = HIGH;
+    stopMotor();
+  }
 }
 
 int getAngleDoorCorr(int angle){
@@ -218,12 +218,16 @@ void ecritureData(void) {
     Serial.print("Vitesse moteur(rad/s):");
     Serial.print(motor_speed); // Vitesse rotation moteur
     Serial.print(",");
-    //Serial.print("Angle moteur(°):");
-    //Serial.print(motor_angle); // Angle arbre moteur
-    //Serial.print(",");
+    Serial.print("Angle moteur(°):");
+    Serial.print(motor_angle); // Angle arbre moteur
+    Serial.print(",");
     Serial.print("Angle porte(°):");
     Serial.print(door_angle); // Angle de la porte
-    
+    Serial.print(", bool(moteur actif, limite haute, limite basse, courant): ");
+    Serial.print(motor_active);
+    Serial.print(is_limite_haute);
+    Serial.print(is_limite_basse);
+    Serial.print(is_current_limit_reach);
     Serial.print("\r");
     Serial.print("\n");
 

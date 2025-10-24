@@ -1,8 +1,7 @@
 04/10/2025 : Code fonctionnel de tous les capteurs (sauf accéléromètre) et pilotage du moteur en boucle ouverte via un potentiomètre avec l'arbre de sortie du réducteur découplé du mécanisme de levage (servodrive ouvert)
-24/10/2025 : Code fonctionnel en boucle ouverte mécanisme monté avec limites en position angulaire
+24/10/2025 : Code fonctionnel en boucle ouverte mécanisme monté avec limites en position angulaire et courant
 
 A FAIRE : 
 - Asservissement en vitesse et position du moteur.
-- Sécurité : limite de courant
 - Ajout de 2 boutons radio
  
