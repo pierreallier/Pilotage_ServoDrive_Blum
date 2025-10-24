@@ -55,13 +55,15 @@ volatile double current_moy_val = 0.;
 volatile double current_tab[current_moy_nb];
 
 // Asservissement
-bool is_bo = LOW;
+bool is_bf = HIGH;
+volatile double consigne = 0.;
 volatile double commande = 0.;
-volatile double Kp = 0.29;
-volatile double Ki = 8.93;
+volatile double Kp = 10.;
+volatile double Ki = 5.;
 volatile double Kd = 0.;
 volatile double P_x = 0.;
 volatile double I_x = 0.;
+volatile double D_x = 0.;
 volatile double ecart = 0.;
 
 // Initialisations
@@ -136,7 +138,6 @@ void stopMotor() {
 void isrt(){
 
   int codeurDeltaPos;
-  int commande;
   
   // Nombre de ticks codeur depuis la dernière fois
   codeurDeltaPos = ticksCodeur;
@@ -159,15 +160,28 @@ void isrt(){
     is_limite_basse = LOW;
   }
   
-  //if (~is_bo) {
-  //}
-
-  // Envoi de la commande au moteur
-  commande = (int)((analogRead(SPEED_POT)-500)/2.);
-  if (abs(commande) < 100) {
-    commande = 0;
+  if (is_bf) {
+    // Commande en boucle fermée : le potentiomètre définit l'angle souhaité
+    consigne = (int)((analogRead(SPEED_POT)-500)*0.1);
+    D_x = -ecart*Kd;
+    ecart = consigne*2.4 - door_angle;
+    D_x += ecart*Kd;
+    P_x = Kp*ecart; // Terme proportionnel
+    commande = P_x + I_x + D_x; // Calcul de la commande
+    I_x = I_x + Ki*dt*ecart; // Terme intégrale (sera utilisé lors du pas déchantillonnage suivant)
+    commande = commande * -2.;
   }
-  CommandeMoteur(commande);
+  else {
+    // Commande en boucle ouverte : le potentiomètre définit la vitesse souhaité
+    consigne = (int)((analogRead(SPEED_POT)-500)/2.);
+    commande = consigne;
+    if (abs(commande) < 100) {
+      commande = 0;
+    }
+  }
+  if (motor_active) {
+    CommandeMoteur((int)(commande));
+  }
 
   motor_command = commande/255.*(float)(analogRead(MOTOR_VOLTAGE) * 25)/ 1023.0; // en V
   motor_current = ((analogRead(MOTOR_CURRENT) / 1023.0) * 5.0 - (5.0/2)) / 0.185; // en A
@@ -206,7 +220,10 @@ void ecritureData(void) {
     Serial.print(temps);
 
     Serial.print(",");
-    Serial.print("Commande moteur(V):");
+    Serial.print("Consigne (° si BF):");
+    Serial.print(consigne); // consigne angulaire si BF, commande hacheur si BO
+    Serial.print(",");
+    Serial.print("Tension moteur(V):");
     Serial.print(motor_command); // Tension moyenne moteur
     Serial.print(",");
     Serial.print("Courant moteur(A):");
