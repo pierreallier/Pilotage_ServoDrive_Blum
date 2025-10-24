@@ -9,15 +9,18 @@
 #endif
 
 #define CODEUR_PORTE A0
-
-
+bool is_limite_haute = LOW;
+bool is_limite_basse = LOW;
+const int limite_haute_val = 180;
+const int limite_basse_val = -135;
+const int codeur_porte_decalage = 12; // 156 si I2C
+unsigned int DELTA_POS_CAPT = 156;
 
 AMS_5600 ams5600;
 
-int DELTA_POS_CAPT = 0;
-
 void setup()
 {
+  pinMode(CODEUR_PORTE,INPUT);
   SERIAL.begin(9600);
   Wire.begin();
   SERIAL.println(">>>>>>>>>>>>>>>>>>>>>>>>>>> ");
@@ -39,7 +42,7 @@ void setup()
     }
     delay(1000);
   }
-  getMaxAngle();
+  //getMaxAngle();
 }
 /*******************************************************
 /* Function: convertRawAngleToDegrees
@@ -50,12 +53,17 @@ void setup()
 /*******************************************************/
 float convertRawAngleToDegrees(word newAngle)
 {
-  return map((newAngle+DELTA_POS_CAPT)%4095,0,4095,0,360.0); /* Raw data reports 0 - 4095 segments, which is 0.087 of a degree */
+  return map(newAngle,0,4095,0,360.0); /* Raw data reports 0 - 4095 segments, which is 0.087 of a degree */
+}
+
+float convertAngleToDegrees(word newAngle)
+{
+  return map((newAngle-DELTA_POS_CAPT)%4095,0,4095,0,360.0); /* Raw data reports 0 - 4095 segments, which is 0.087 of a degree */
 }
 
 float getAnalogAngleToDegrees()
 {
-  return map((int)(analogRead(CODEUR_PORTE) * 5.0/3.3),0,1023,0,360.0); // problème d'échelle, corrigé si alimenté en 5V normalement
+  return map(analogRead(CODEUR_PORTE),0,655,0,360.0); // problème d'échelle, corrigé si alimenté en 5V normalement
 }
 
 /* Fonction qui permet de récupérer l'angle de correction à introduire sur le capteur de position de la porte pour corriger l'alignement de l'aimant */
@@ -90,8 +98,30 @@ void getMaxAngle() {
 
 void loop()
 {
+  double ang = map(analogRead(CODEUR_PORTE),0,655,0,360.0)-codeur_porte_decalage;
+  if (ang > 210) {
+    ang = ang-360;
+  }
+  if (ang >= limite_haute_val) {
+    is_limite_haute = HIGH;
+  } else {
+    is_limite_haute = LOW;
+  }
+  if (ang <= limite_basse_val) {
+    is_limite_basse = HIGH;
+  } else {
+    is_limite_basse = LOW;
+  }
+
+  SERIAL.print(" Angle brut : ");
   SERIAL.print(convertRawAngleToDegrees(ams5600.getScaledAngle()));
-  SERIAL.print(" Valeur de correction :");
-  SERIAL.println(DELTA_POS_CAPT);
+  SERIAL.print(" Angle brut analog: ");
+  SERIAL.print(getAnalogAngleToDegrees());
+  SERIAL.print(", Angle corrigé : ");
+  SERIAL.print(ang);
+  SERIAL.print(", Limite haute : ");
+  SERIAL.print(is_limite_haute);
+  SERIAL.print(", Limite basse : ");
+  SERIAL.println(is_limite_basse);
   delay(100);
 }
