@@ -8,8 +8,13 @@
 #define CODEUR_B_PIN 19
 volatile long ticksCodeur = 0;
 
-// Autres capteurs
+// Codeur porte
 #define CODEUR_PORTE A4
+bool is_limite_haute = LOW;
+bool is_limite_basse = LOW;
+const int limite_haute_val = 180;
+const int limite_basse_val = -135;
+const int codeur_porte_decalage = 12;
 
 // Moteur CC
 #define PWM_REV_PIN  4
@@ -41,8 +46,30 @@ volatile double motor_angle = 0.;
 volatile bool motor_active = LOW;
 volatile unsigned prev_time_bt = 0; // Pour éviter l'effot bouncing du bouton
 
+// Moyenne courant
+volatile bool is_current_limit_reach = LOW;
+const unsigned int limite_current = 5;
+const unsigned int current_moy_nb = 5;
+volatile unsigned int current_index = 0;
+volatile double current_moy_val = 0.;
+volatile double current_tab[current_moy_nb];
+
+// Asservissement
+bool is_bo = LOW;
+volatile double commande = 0.;
+volatile double Kp = 0.29;
+volatile double Ki = 8.93;
+volatile double Kd = 0.;
+volatile double P_x = 0.;
+volatile double I_x = 0.;
+volatile double ecart = 0.;
+
 // Initialisations
 void setup(void) {
+  // Initialisation du tableau du courant
+  for (int i=0; i < current_moy_nb; i++) {
+    current_tab[i] = 0;
+  }
 
   // Codeur incrémental
   pinMode(CODEUR_A_PIN, INPUT);      // entrée digitale pin A codeur
@@ -92,13 +119,18 @@ void toogleBt() {
     if (motor_active  == LOW) {
       digitalWrite(STBY_PIN, HIGH);
       motor_active = HIGH;
+      is_current_limit_reach = LOW;
       digitalWrite(LED_BUILTIN, HIGH);
     } else {
-      motor_active = LOW;
-      digitalWrite(STBY_PIN, LOW);
-      digitalWrite(LED_BUILTIN, LOW);
+      stopMotor();
     }
   }
+}
+
+void stopMotor() {
+  motor_active = LOW;
+  digitalWrite(STBY_PIN, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void isrt(){
@@ -111,8 +143,24 @@ void isrt(){
   ticksCodeur = 0;
 
   // Calcul de la vitesse de rotation
-  motor_speed = ((2.*3.141592*((double)codeurDeltaPos))/128.)/dt;  // en rad/s
-  motor_angle += (double)(codeurDeltaPos)*360/128.; // en °
+  motor_speed = ((3.141592*((double)codeurDeltaPos))/128.)/dt;  // en rad/s
+  motor_angle += (double)(codeurDeltaPos)*180/128.; // en °
+
+  // Vérification des limites angulaire de la porte
+  door_angle = getAngleDoorCorr(analogRead(CODEUR_PORTE));
+  if (door_angle >= limite_haute_val) {
+    is_limite_haute = HIGH;
+  } else {
+    is_limite_haute = LOW;
+  }
+  if (door_angle <= limite_basse_val) {
+    is_limite_basse = HIGH;
+  } else {
+    is_limite_basse = LOW;
+  }
+  
+  //if (~is_bo) {
+  //}
 
   // Envoi de la commande au moteur
   commande = (int)((analogRead(SPEED_POT)-500)/2.);
@@ -122,10 +170,32 @@ void isrt(){
   CommandeMoteur(commande);
 
   motor_command = commande/255.*(float)(analogRead(MOTOR_VOLTAGE) * 25)/ 1023.0; // en V
-  door_angle = map(analogRead(CODEUR_PORTE), 0, 1023, 0, 360); // en °
   motor_current = ((analogRead(MOTOR_CURRENT) / 1023.0) * 5.0 - (5.0/2)) / 0.185; // en A
   driver_current = ((analogRead(DRIVER_CURRENT) / 1023.0) * 5.0 ) / 0.500; // en A
+  door_angle = door_angle / 2.4; // angle réel de la porte en °
   temps += dt; // en s
+
+  // if (addCurrent(driver_current) >= limite_current) {
+  //   is_current_limit_reach = HIGH;
+  //   stopMotor();
+  // }
+}
+
+int getAngleDoorCorr(int angle){
+  door_angle = map(angle,0,655,0,360.0)-codeur_porte_decalage;
+  if (door_angle > 210) {
+    door_angle -= 360; 
+  }
+  return door_angle;
+}
+
+double addCurrent(double current) {
+  // Fonction qui calcule une moyenne glissante
+  current_moy_val -= current_tab[current_index];
+  current_moy_val += current;
+  current_tab[current_index] = current;
+  current_index = (current_index+1) % current_moy_nb;
+  return (float) current_moy_val / current_moy_nb;
 }
 
 void ecritureData(void) {
@@ -172,11 +242,11 @@ void CommandeMoteur(int tension_int)
 	}
 
   // Commande PWM
-	if (tension_int>0) {
+	if (tension_int>0 & ~is_limite_basse) {
     digitalWrite(PWM_REV_PIN, LOW); // Set motor direction to forward
     analogWrite(PWM_FOR_PIN, tension_int);
 	}
-	else if (tension_int<0) {
+	else if (tension_int<0 & ~is_limite_haute) {
 		digitalWrite(PWM_FOR_PIN, LOW); // Set motor direction to reverse
     analogWrite(PWM_REV_PIN, -tension_int);
 	}
