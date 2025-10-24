@@ -41,9 +41,11 @@ volatile double motor_current = 0.;
 volatile double driver_current = 0.;
 volatile double door_angle = 0.;
 volatile double motor_angle = 0.;
+volatile bool motor_dir=LOW; // LOW=ouverture, HIGH=fermeture
 
 #define TEST_BT 2 // Bouton de mise en fonctionnement / arrêt
 volatile bool motor_active = LOW;
+volatile bool stop_motor = LOW;
 volatile unsigned prev_time_bt = 0; // Pour éviter l'effot bouncing du bouton
 
 // Moyenne courant
@@ -55,7 +57,7 @@ volatile double current_moy_val = 0.;
 volatile double current_tab[current_moy_nb];
 
 // Asservissement
-bool is_bf = HIGH;
+bool is_bf = LOW;
 volatile double consigne = 0.;
 volatile double commande = 0.;
 volatile double Kp = 10.;
@@ -113,6 +115,19 @@ void loop() {
   if (motor_active) {
     ecritureData();
   }
+  if (stop_motor) {
+    motor_active = LOW;
+    if (motor_dir) {
+      CommandeMoteur(-255);
+    }
+    else {
+      CommandeMoteur(255);
+    }
+    delay(30);
+    digitalWrite(STBY_PIN, LOW);
+    digitalWrite(LED_BUILTIN, LOW);
+    stop_motor = LOW;
+  }
 }
 
 void toogleBt() {
@@ -130,9 +145,10 @@ void toogleBt() {
 }
 
 void stopMotor() {
-  motor_active = LOW;
-  digitalWrite(STBY_PIN, LOW);
-  digitalWrite(LED_BUILTIN, LOW);
+  stop_motor = HIGH;
+  //motor_active = LOW;
+  //digitalWrite(STBY_PIN, LOW);
+  //digitalWrite(LED_BUILTIN, LOW);
 }
 
 void isrt(){
@@ -183,7 +199,6 @@ void isrt(){
     CommandeMoteur((int)(commande));
   }
 
-  motor_command = commande/255.*(float)(analogRead(MOTOR_VOLTAGE) * 25)/ 1023.0; // en V
   motor_current = ((analogRead(MOTOR_CURRENT) / 1023.0) * 5.0 - (5.0/2)) / 0.185; // en A
   driver_current = ((analogRead(DRIVER_CURRENT) / 1023.0) * 5.0 ) / 0.500; // en A
   door_angle = door_angle / 2.4; // angle réel de la porte en °
@@ -219,26 +234,21 @@ void ecritureData(void) {
   if (tempsCourant-tempsDernierEnvoi > TSDATA) {
     Serial.print(temps);
 
-    Serial.print(",");
-    Serial.print("Consigne (° si BF):");
+    Serial.print(",Consigne(° si BF):");
     Serial.print(consigne); // consigne angulaire si BF, commande hacheur si BO
-    Serial.print(",");
-    Serial.print("Tension moteur(V):");
+    Serial.print(",Commande hacheur:");
+    Serial.print(commande); // commande hacheur
+    Serial.print(",Tension moteur(V):");
     Serial.print(motor_command); // Tension moyenne moteur
-    Serial.print(",");
-    Serial.print("Courant moteur(A):");
+    Serial.print(",Courant moteur(A):");
     Serial.print(motor_current); // courant moteur
-    Serial.print(",");
-    Serial.print("Courant driver(A):");
+    Serial.print(",Courant driver(A):");
     Serial.print(driver_current); // Courant driver = courant moteur
-    Serial.print(",");
-    Serial.print("Vitesse moteur(rad/s):");
+    Serial.print(",Vitesse moteur(rad/s):");
     Serial.print(motor_speed); // Vitesse rotation moteur
-    Serial.print(",");
-    Serial.print("Angle moteur(°):");
+    Serial.print(",Angle moteur(°):");
     Serial.print(motor_angle); // Angle arbre moteur
-    Serial.print(",");
-    Serial.print("Angle porte(°):");
+    Serial.print(",Angle porte(°):");
     Serial.print(door_angle); // Angle de la porte
     Serial.print(", bool(moteur actif, limite haute, limite basse, courant): ");
     Serial.print(motor_active);
@@ -261,13 +271,16 @@ void CommandeMoteur(int tension_int)
 	if (tension_int<-255) {
 		tension_int = -255;
 	}
+  motor_command = tension_int/255.*(float)(analogRead(MOTOR_VOLTAGE) * 25)/ 1023.0; // en V
 
   // Commande PWM
 	if (tension_int>0 & ~is_limite_basse) {
+    motor_dir = HIGH;
     digitalWrite(PWM_REV_PIN, LOW); // Set motor direction to forward
     analogWrite(PWM_FOR_PIN, tension_int);
 	}
 	else if (tension_int<0 & ~is_limite_haute) {
+    motor_dir = LOW;
 		digitalWrite(PWM_FOR_PIN, LOW); // Set motor direction to reverse
     analogWrite(PWM_REV_PIN, -tension_int);
 	}

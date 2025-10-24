@@ -1,7 +1,8 @@
 04/10/2025 : Code fonctionnel de tous les capteurs (sauf accéléromètre) et pilotage du moteur en boucle ouverte via un potentiomètre avec l'arbre de sortie du réducteur découplé du mécanisme de levage (servodrive ouvert)
 24/10/2025 : Code fonctionnel en boucle ouverte mécanisme monté avec limites en position angulaire et courant
+24/10/2025 : Code fonctionnel asservissement en position (reste encore à bien déterminer les coefficients). 
+24/10/2025 : Déblocage de la roue libre (mouvement inverse) lors des arrêts du moteur.
 
 A FAIRE : 
-- Ajouter un mouvement sens inverse avant arrêt pour débloquer la roue libre.
 - Ajout de 2 boutons radio
  
