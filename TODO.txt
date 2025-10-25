@@ -2,7 +2,7 @@
 24/10/2025 : Code fonctionnel en boucle ouverte mécanisme monté avec limites en position angulaire et courant
 24/10/2025 : Code fonctionnel asservissement en position (reste encore à bien déterminer les coefficients). 
 24/10/2025 : Déblocage de la roue libre (mouvement inverse) lors des arrêts du moteur.
+24/10/2025 : ajout de deux boutons radio
 
 A FAIRE : 
-- Ajout de 2 boutons radio
  

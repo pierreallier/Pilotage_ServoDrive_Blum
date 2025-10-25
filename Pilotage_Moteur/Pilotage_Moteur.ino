@@ -21,8 +21,8 @@ const int codeur_porte_decalage = 12;
 #define PWM_FOR_PIN  5
 #define STBY_PIN 8  // Driver du moteur : Standby input
 #define MOTOR_VOLTAGE A0 // Driver du moteur : mesure de la tension
-#define MOTOR_CURRENT A1
-#define DRIVER_CURRENT A3
+#define MOTOR_CURRENT A1 // Mesure du courant fournit au moteur
+#define DRIVER_CURRENT A3 // Driver du moteur : mesure du courant
 #define SPEED_POT A2 // Potentiomètre réglage vitesse moteur
 
 // Cadence d'envoi des données en ms
@@ -47,6 +47,9 @@ volatile bool motor_dir=LOW; // LOW=ouverture, HIGH=fermeture
 volatile bool motor_active = LOW;
 volatile bool stop_motor = LOW;
 volatile unsigned prev_time_bt = 0; // Pour éviter l'effot bouncing du bouton
+
+#define WIRELESS_BT 3 // Bouton sans fil 
+volatile unsigned prev_time_wbt = 0; // Pour éviter l'effot bouncing du bouton
 
 // Moyenne courant
 volatile bool is_current_limit_reach = LOW;
@@ -85,7 +88,9 @@ void setup(void) {
 
   // Bouton de mise en fonctionnement
   pinMode(TEST_BT, INPUT_PULLUP);
+  pinMode(WIRELESS_BT, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(TEST_BT), toogleBt, RISING);
+  attachInterrupt(digitalPinToInterrupt(WIRELESS_BT), wirelessBt, RISING);
   pinMode(LED_BUILTIN, OUTPUT);
 
   // Moteur CC
@@ -133,6 +138,20 @@ void loop() {
 void toogleBt() {
   if (millis() - prev_time_bt >= 250){
     prev_time_bt = millis();
+    if (motor_active  == LOW) {
+      digitalWrite(STBY_PIN, HIGH);
+      motor_active = HIGH;
+      is_current_limit_reach = LOW;
+      digitalWrite(LED_BUILTIN, HIGH);
+    } else {
+      stopMotor();
+    }
+  }
+}
+
+void wirelessBt() {
+  if (millis() - prev_time_wbt >= 250){
+    prev_time_wbt = millis();
     if (motor_active  == LOW) {
       digitalWrite(STBY_PIN, HIGH);
       motor_active = HIGH;
@@ -250,7 +269,7 @@ void ecritureData(void) {
     Serial.print(motor_angle); // Angle arbre moteur
     Serial.print(",Angle porte(°):");
     Serial.print(door_angle); // Angle de la porte
-    Serial.print(", bool(moteur actif, limite haute, limite basse, courant): ");
+    Serial.print(", bool(moteur actif;limite haute;limite basse;courant): ");
     Serial.print(motor_active);
     Serial.print(is_limite_haute);
     Serial.print(is_limite_basse);
